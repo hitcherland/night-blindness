@@ -66,7 +66,7 @@ function car_control(car, scene) {
         car.rotationQuaternion.toRotationMatrix(car_rotation_matrix);
 
         var car_direction = BABYLON.Vector3.TransformCoordinates(
-            new BABYLON.Vector3(1, 0, 0),
+            new BABYLON.Vector3(0, 0, 1),
             car_rotation_matrix
         );
 
