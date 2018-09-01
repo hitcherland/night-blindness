@@ -35,10 +35,9 @@ var loadLevel = function( name ) {
     BABYLON.SceneLoader.Load("scenes/levels/", name + ".babylon", engine, function (newScene) {
         newScene.executeWhenReady( function() {
             scene = newScene;
-            var imposters = scene.getPhysicsEngine().getImpostors();
-            console.log( imposters.map( x => x.mass ) );
-            //imposters.filter( x => x.mass == 0.001 ).map( x => x.setMass( 0 ) );
             scene.activeCameras = scene.cameras;
+            var car = scene.getMeshByName( "Car" )
+            car_control( car, scene ); 
             setupMonitors( newScene );
         });
     });
