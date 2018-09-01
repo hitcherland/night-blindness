@@ -17,9 +17,6 @@
     <script>
         var canvas = document.getElementById("renderCanvas"); // Get the canvas element 
         var engine = new BABYLON.Engine(canvas, true); // Generate the BABYLON 3D engine
-
-        /******* Add the create scene function ******/
-
         var scene, playerScene;
 
         BABYLON.SceneLoader.Load("scenes/monitor_room/", "monitor.babylon", engine, function (newScene) {
@@ -33,10 +30,9 @@
                             scene.render();
                         playerScene.render();
                 });
-            }, function( progress ) {
+            });            
+        }, function( progress ) {
                 console.log( progress );
-            });
-            
         });
 
         // Watch for browser/canvas resize events

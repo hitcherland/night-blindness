@@ -37,7 +37,7 @@ var loadLevel = function( name ) {
             scene = newScene;
             var imposters = scene.getPhysicsEngine().getImpostors();
             console.log( imposters.map( x => x.mass ) );
-            imposters.filter( x => x.mass == 0.001 ).map( x => x.setMass( 0 ) );
+            //imposters.filter( x => x.mass == 0.001 ).map( x => x.setMass( 0 ) );
             scene.activeCameras = scene.cameras;
             setupMonitors( newScene );
         });
