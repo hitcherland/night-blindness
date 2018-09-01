@@ -36,7 +36,7 @@ var loadLevel = function( name ) {
         newScene.executeWhenReady( function() {
             scene = newScene;
             scene.activeCameras = scene.cameras;
-            car = scene.getMeshByName( "Car" );
+            car = scene.getMeshByName( "RealCar" );
             car.physicsImpostor = new BABYLON.PhysicsImpostor(
                 car,
                 BABYLON.PhysicsImpostor.BoxImpostor,
