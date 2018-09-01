@@ -74,11 +74,12 @@ function car_control(car, scene) {
         );
         // Project the updated velocity onto car_direction to remove
         // drift
-        new_velocity = car_direction.scale(
+        var projected_velocity = car_direction.scale(
             BABYLON.Vector3.Dot(new_velocity, car_direction)
         );
-        // Set the car's new velocity
-        car.physicsImpostor.setLinearVelocity(new_velocity);
+        new_velocity = new BABYLON.Vector3(
+            projected_velocity.x, new_velocity.y, projected_velocity.z
+        );
 
 
         // Apply friction and speed limitations
@@ -90,28 +91,30 @@ function car_control(car, scene) {
         ) {
             // Scale the velocity down as a fraction of
             // max_speed / current_speed
-            car.physicsImpostor.setLinearVelocity(
-                car.physicsImpostor.getLinearVelocity().scale(
-                    car_max_speed*car_max_speed
+            scaled_velocity = new_velocity.scale(
+                car_max_speed*car_max_speed
                      / car.physicsImpostor.getLinearVelocity().lengthSquared()
-                )
+            )
+
+            new_velocity = new BABYLON.Vector3(
+                scaled_velocity.x, new_velocity.y, scaled_velocity.z
             );
         }
 
         // If the user isn't accelerating, or the car is going
         // backwards, apply friction
         if(
-            BABYLON.Vector3.Dot(
-                car.physicsImpostor.getLinearVelocity(),
-                car_direction
-            )*car_acceleration < 0.0001
+            BABYLON.Vector3.Dot(new_velocity, car_direction)*car_acceleration
+                < 0.0001
         ) {
-            car.physicsImpostor.setLinearVelocity(
-                car.physicsImpostor.getLinearVelocity().scale(
-                    0.85
-                )
+            scaled_velocity = new_velocity.scale(0.85);
+            new_velocity = new BABYLON.Vector3(
+                scaled_velocity.x, new_velocity.y, scaled_velocity.z
             );
         }
+
+        // Set the car's new velocity
+        car.physicsImpostor.setLinearVelocity(new_velocity);
 
     });
 }
