@@ -23,6 +23,11 @@ function car_control(car, scene) {
 
 
     // Game/Render loop
+    if(car.rotationQuaternion == undefined) {
+        car.rotationQuaternion = new BABYLON.Quaternion.RotationYawPitchRoll(
+            car.rotation.y, car.rotation.x, car.rotation.z
+        )
+    }
     var car_rotation_matrix = new BABYLON.Matrix();
     var car_max_speed = 10;
     scene.onBeforeRenderObservable.add(function() {
