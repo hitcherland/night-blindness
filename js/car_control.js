@@ -1,4 +1,6 @@
 function car_control(car, scene) {
+    var engine = scene.getEngine();
+
     // Keyboard events
     var inputMap = {};
     scene.actionManager = new BABYLON.ActionManager(scene);
@@ -35,6 +37,9 @@ function car_control(car, scene) {
 
         var car_acceleration = 0;
         var turning_angle = 0;
+
+        // dt in milliseconds
+        var dt = Math.max(engine.getDeltaTime(), 1);
 
         if(inputMap["w"] || inputMap["ArrowUp"]){
             car_acceleration = 1;
@@ -79,11 +84,13 @@ function car_control(car, scene) {
         );
         // Project the updated velocity onto car_direction to remove
         // drift
-        var projected_velocity = car_direction.scale(
+        var original_projected_velocity = car_direction.scale(
             BABYLON.Vector3.Dot(new_velocity, car_direction)
         );
         new_velocity = new BABYLON.Vector3(
-            projected_velocity.x, new_velocity.y, projected_velocity.z
+            original_projected_velocity.x,
+            new_velocity.y,
+            original_projected_velocity.z
         );
 
 
@@ -99,20 +106,9 @@ function car_control(car, scene) {
             scaled_velocity = new_velocity.scale(
                 car_max_speed*car_max_speed
                      / car.physicsImpostor.getLinearVelocity().lengthSquared()
+                     / (dt / 30)
             )
 
-            new_velocity = new BABYLON.Vector3(
-                scaled_velocity.x, new_velocity.y, scaled_velocity.z
-            );
-        }
-
-        // If the user isn't accelerating, or the car is going
-        // backwards, apply friction
-        if(
-            BABYLON.Vector3.Dot(new_velocity, car_direction)*car_acceleration
-                < 0.0001
-        ) {
-            scaled_velocity = new_velocity.scale(0.85);
             new_velocity = new BABYLON.Vector3(
                 scaled_velocity.x, new_velocity.y, scaled_velocity.z
             );
