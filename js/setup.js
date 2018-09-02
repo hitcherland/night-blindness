@@ -36,6 +36,7 @@ var loadMonitorRoom = function() {
                     new BABYLON.ExecuteCodeAction(
                         BABYLON.ActionManager.OnKeyDownTrigger,
                         function (evt) {
+                            console.log( "hello" );
                             inputMap[evt.sourceEvent.key] =
                                 evt.sourceEvent.type == "keydown";
                         }
@@ -92,19 +93,20 @@ uniform sampler2D textureSampler;
 // Parameters
 uniform vec2 screenSize;
 uniform float time;
+uniform float scaling;
 
 float random( vec2 p ) {
     vec2 K1 = vec2(
         23.14069263277926, // e^pi (Gelfond's constant)
          2.665144142690225 // 2^sqrt(2) (Gelfondâ€“Schneider constant)
     );
-    return fract( cos( dot(time * p,K1) ) * 12345.6789 );
+    return mod( 1664525.0 * time * ( p.x  * 12.0 + p.y ) + 1013904223.0, 4294967296.0 )/  4294967296.0;
 }
 
 void main(void) 
 {
     vec4 baseColor = texture2D(textureSampler, vUV);
-    float rand = random( floor( vUV * 1000.0 ) );
+    float rand = random( floor( vUV * scaling ) );
     baseColor = ( 4.0 * baseColor + vec4( rand,rand,rand, 1 ) ) / 5.0;
     baseColor.a = 1.0;
 
@@ -354,10 +356,11 @@ var setupMonitors = function( playerScene, levelScene ) {
 
         if( camera.parent === undefined || camera.parent.name != "Car" ) {
             var t = monitors[ i ].material.diffuseTexture;
-            var postProcess = new BABYLON.PostProcess("noise", "noise", ["screenSize", "time"], null, 0.25, camera);
+            var postProcess = new BABYLON.PostProcess("noise", "noise", ["screenSize", "time", "scaling"], null, 0.25, camera);
             postProcess.onApply = function (effect) {
                 effect.setFloat2("screenSize", postProcess.width, postProcess.height);
                 effect.setFloat("time", performance.now() + i);
+                effect.setFloat("scaling", 1000.0);
             };
             t.level = 1;
 
