@@ -41,7 +41,9 @@ void main(void)
 
 
 var makeMonitorTexture = function( scene, camera ) {
-    var diff = new BABYLON.RenderTargetTexture( ".renderTexture", 1024, scene, true );
+    var diff = new BABYLON.RenderTargetTexture(
+        ".renderTexture", 1024, scene, true
+    );
     diff.samples = 16;
     diff.anisotropicFilteringLevel = 0;
     diff.lodGenerationScale = 1.0;
@@ -56,7 +58,9 @@ var makeMonitorTexture = function( scene, camera ) {
 }
 
 var makeMonitor = function( monitor, localScene, remoteScene, remoteCamera ) {
-    var mat = new BABYLON.StandardMaterial( monitor.name + ".material", localScene );
+    var mat = new BABYLON.StandardMaterial(
+        monitor.name + ".material", localScene
+    );
     var diff = makeMonitorTexture( remoteScene, remoteCamera );
     monitor.material = mat
     mat.specularColor = new BABYLON.Color3(0.1, 0.1, 0.1);
@@ -67,20 +71,33 @@ var makeMonitor = function( monitor, localScene, remoteScene, remoteCamera ) {
 }
 
 var loadLevel = function( name ) {
-    BABYLON.SceneLoader.Load("scenes/levels/", name + ".babylon", engine, function (newScene) {
-        newScene.executeWhenReady( function() {
-            scene = newScene;
-            scene.activeCameras = scene.cameras;
-            scene.getMeshByName( "Walls" ).getChildren().map( x => x.physicsImpostor.setMass( 0 ) );
-            var shadows = scene.lights.filter( x => x.needCube !== undefined ).map( x => new BABYLON.ShadowGenerator( 1024, x, true) );
-            shadows.map( x => scene.getMeshByName( "Walls" ).getChildren().map( y => x.addShadowCaster( y ) ) );
-            scene.meshes.map( x => x.receiveShadows = true );
+    BABYLON.SceneLoader.Load(
+        "scenes/levels/", name + ".babylon", engine,
+        function (newScene) {
+            newScene.executeWhenReady( function() {
+                scene = newScene;
+                scene.activeCameras = scene.cameras;
+                scene.getMeshByName( "Walls" ).getChildren().map(
+                    x => x.physicsImpostor.setMass( 0 )
+                );
+                var shadows =
+                    scene.lights
+                        .filter( x => x.needCube !== undefined )
+                        .map(
+                            x => new BABYLON.ShadowGenerator( 1024, x, true)
+                        );
+                shadows
+                    .map( x => scene.getMeshByName( "Walls" )
+                    .getChildren()
+                    .map( y => x.addShadowCaster( y ) ) );
+                scene.meshes.map( x => x.receiveShadows = true );
 
-            setupCar( newScene );
-            setupMonitors( newScene );
-            setupComputer( newScene );
-        });
-    });
+                setupCar( newScene );
+                setupMonitors( newScene );
+                setupComputer( newScene );
+            });
+        }
+    );
 }
 
 var setupCar = function( scene ) {
@@ -114,29 +131,39 @@ var setupCar = function( scene ) {
 }
 
 var setupMonitors = function( scene ) {
-    var monitors = [ "Left", "Center", "Right" ].map( x => playerScene.getMeshByName( "Monitor." + x ) )
+    var monitors =
+        [ "Left", "Center", "Right" ]
+            .map( x => playerScene.getMeshByName( "Monitor." + x ) )
     for( var i=0; i<monitors.length; i++ ) {
         var camera = scene.cameras[ i % scene.cameras.length ];
         if( monitors.material === undefined ) {
-            makeMonitor( monitors[ i ], playerScene, scene, camera );
+            makeMonitor(
+                monitors[ i ],
+                playerScene, scene,
+                scene.cameras[ i % scene.cameras.length ]
+            );
         } else {
             delete monitors.material.diffuseTexture;
-            monitors[ i ].material.diffuseTexture = makeMonitorTexture( scene, camera );
+            monitors[ i ].material.diffuseTexture = makeMonitorTexture(
+                scene, scene.cameras[ i % scene.cameras.length ]
+            );
         }
+
         if( camera.parent === undefined || camera.parent.name != "Car" ) {
             var t = monitors[ i ].material.diffuseTexture;
             var postProcess = new BABYLON.PostProcess("noise", "noise", ["screenSize", "highlightThreshold", "time"], null, 0.25, camera);
             postProcess.onApply = function (effect) {
                 effect.setFloat2("screenSize", postProcess.width, postProcess.height);
                 effect.setFloat("highlightThreshold", 0.90);
-                effect.setFloat("time", performance.now());
+                effect.setFloat("time", performance.now() + i);
             };
-//
             t.level = 1;
+
             [
                 postProcess,
                 new BABYLON.GrainPostProcess( "grainy" + i, 1.8, camera ),
             ].map( x => t.addPostProcess( x ) );
+
         }
     }
 
