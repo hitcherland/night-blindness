@@ -39,12 +39,13 @@ var loadLevel = function( name ) {
             scene.getMeshByName( "Walls" ).getChildren().map( x => x.physicsImpostor.setMass( 0 ) );
             car = scene.getMeshByName( "Car" );
 
-            // Game/Render loop
             var last_press = null;
             scene.onBeforeRenderObservable.add(()=>{
                 if( ( inputMap[ "f" ] || inputMap[ "F" ] ) && ( last_press === null || last_press + 100 < performance.now() ) ){
-                    last_press = performance.now()
-                    scene.getMeshByName( "headlight" ).getChildren().map( x => x.setEnabled( ! x.isEnabled() ) );
+                    last_press = performance.now();
+                    var headlights = scene.getMeshByName( "headlight" ).getChildren();
+                    scene.getLightByName( "DarkLight" ).setEnabled( headlights[ 0 ].isEnabled() );
+                    headlights.map( x => x.setEnabled( ! x.isEnabled() ) );
                 }
             });
 
