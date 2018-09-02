@@ -22,15 +22,6 @@ var makeMonitor = function( monitor, localScene, remoteScene, remoteCamera ) {
     remoteCamera.customRenderTargets.push( mat.diffuseTexture );
 }
 
-var MakePhysics = function( mesh, mass ) {
-    return new BABYLON.PhysicsImpostor(
-            mesh,
-            BABYLON.PhysicsImpostor.BoxImpostor,
-            { "mass": mass, restitution: 0.9 },
-            scene
-        );
-}
-
 var loadLevel = function( name ) {
     BABYLON.SceneLoader.Load("scenes/levels/", name + ".babylon", engine, function (newScene) {
         newScene.executeWhenReady( function() {
