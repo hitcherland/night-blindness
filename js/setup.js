@@ -53,24 +53,43 @@ var loadMonitorRoom = function() {
                 );
 
 
-                // Load the level
-                loadLevel(
-                    "simple",
-                    inputMap,
-                    function(levelScene) {
-                        setupMonitors( playerScene, levelScene );
-                        engine.runRenderLoop(function () { 
-                                levelScene.render();
-                                playerScene.render();
-                        });
-                    },
-                    function() {
-                        console.log("You hacked good!");
-                    },
-                    function() {
-                        console.log("Oh no, you got caught!");
-                    }
-                );
+                (function do_load_level() {
+                    var loadedLevelScene;
+                    var monitor_textures;
+
+                    // Load the level
+                    loadLevel(
+                        "simple",
+                        inputMap,
+                        function(levelScene) {
+                            loadedLevelScene = levelScene;
+                            monitor_textures = setupMonitors(
+                                playerScene, levelScene
+                            );
+
+                            engine.runRenderLoop(function () { 
+                                    if(loadedLevelScene) {
+                                        loadedLevelScene.render();
+                                    }
+                                    playerScene.render();
+                            });
+                        },
+                        function() {
+                            console.log("You hacked good!");
+                        },
+                        function() {
+                            console.log("Oh no, you got caught!");
+                            if(loadedLevelScene) {
+                                console.log(loadedLevelScene);
+                                loadedLevelScene.dispose();
+                                loadedLevelScene = null;
+                                do_load_level();
+                            }
+                            console.log("Finishing up");
+                            console.log("Finished: ", loadedLevelScene);
+                        }
+                    );
+                })();
 
             });            
         },
@@ -152,7 +171,6 @@ var makeMonitor = function( monitor, playerScene, levelScene, remoteCamera ) {
     textmat.specularColor = new BABYLON.Color4( 0, 0, 0, 0 );
     textmat.specularColor = new BABYLON.Color4( 0, 0, 0, 0 );
     textTexture.hasAlpha = true;
-        
 }
 
 var loadLevel = function(
@@ -339,6 +357,7 @@ var setupMonitors = function( playerScene, levelScene ) {
     var monitors =
         [ "Left", "Center", "Right" ]
             .map( x => playerScene.getMeshByName( "Monitor." + x ) )
+
     for( var i=0; i<monitors.length; i++ ) {
         var camera = levelScene.cameras[ i % levelScene.cameras.length ];
         if( monitors.material === undefined ) {
@@ -356,7 +375,10 @@ var setupMonitors = function( playerScene, levelScene ) {
 
         if( camera.parent === undefined || camera.parent.name != "Car" ) {
             var t = monitors[ i ].material.diffuseTexture;
-            var postProcess = new BABYLON.PostProcess("noise", "noise", ["screenSize", "time", "scaling"], null, 0.25, camera);
+            var postProcess = new BABYLON.PostProcess(
+                "noise", "noise", ["screenSize", "time", "scaling"],
+                null, 0.25, camera
+            );
             postProcess.onApply = function (effect) {
                 effect.setFloat2("screenSize", postProcess.width, postProcess.height);
                 effect.setFloat("time", performance.now() + i);
