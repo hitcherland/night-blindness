@@ -12,6 +12,8 @@ var loadMonitorRoom = function() {
         "scenes/monitor_room/", "monitor.babylon", engine,
         function (playerScene) {
             playerScene.executeWhenReady( function() { 
+                var good_sound = new BABYLON.Sound("Music", "audio/shortgood.mp3", playerScene, null, { loop: false, autoplay: false });
+                var bad_sound = new BABYLON.Sound("Music", "audio/shortbad.mp3", playerScene, null, { loop: false, autoplay: false });
 
                 var music = new BABYLON.Sound("Music", "audio/background.mp3", playerScene, null, { loop: true, autoplay: true });
 
@@ -96,9 +98,10 @@ var loadMonitorRoom = function() {
                         if( !audio_playing ) {
                             console.log("You hacked good!");
                             audio_playing = true;
-                            var sound = new BABYLON.Sound("Music", "audio/shortgood.mp3", playerScene, null, { loop: false, autoplay: true });
-                            sound.onended = function() {
+                            good_sound.play() 
+                            good_sound.onended = function() {
                                 if(loadedLevelScene) {
+                                    audio_playing = false;
                                     var car = loadedLevelScene.getMeshByName("Car");
                                     car.position = originalCarPosition;
                                     car.rotationQuaternion = originalCarOrientation;
@@ -110,9 +113,10 @@ var loadMonitorRoom = function() {
                         if( !audio_playing ) {
                             console.log("Oh no, you got caught!");
                             audio_playing = true;
-                            var sound = new BABYLON.Sound("Music", "audio/shortbad.mp3", playerScene, null, { loop: false, autoplay: true });
-                            sound.onended = function() {
+                            bad_sound.play() 
+                            bad_sound.onended = function() {
                                 if(loadedLevelScene) {
+                                    audio_playing = false;
                                     var car = loadedLevelScene.getMeshByName("Car");
                                     car.position = originalCarPosition;
                                     car.rotationQuaternion = originalCarOrientation;
