@@ -44,16 +44,16 @@ function car_control(car, scene) {
         // dt in milliseconds
         var dt = Math.max(engine.getDeltaTime(), 1);
 
-        if(inputMap["w"] || inputMap["ArrowUp"]){
+        if(inputMap["w"] || inputMap["ArrowUp"]) {
             car_acceleration = 1;
         }
-        if(inputMap["a"] || inputMap["ArrowLeft"]){
+        if(inputMap["a"] || inputMap["ArrowLeft"]) {
             turning_angle = -4;
         }
-        if(inputMap["s"] || inputMap["ArrowDown"]){
+        if(inputMap["s"] || inputMap["ArrowDown"]) {
             car_acceleration = -1;
         }
-        if(inputMap["d"] || inputMap["ArrowRight"]){
+        if(inputMap["d"] || inputMap["ArrowRight"]) {
             turning_angle = 4;
         }
 
@@ -109,10 +109,11 @@ function car_control(car, scene) {
         );
 
         // Add dynamic engine friction
-        var dynamic_engine_friction = BABYLON.Vector2.Normalize(original_forward_velocity).scale(
-            - dynamic_engine_friction_coefficient
-                * original_forward_velocity.lengthSquared()
-        );
+        var dynamic_engine_friction =
+            BABYLON.Vector2.Normalize(original_forward_velocity).scale(
+                - dynamic_engine_friction_coefficient
+                    * original_forward_velocity.lengthSquared()
+            );
 
         var car_velocity =
             original_forward_velocity.add(
@@ -123,7 +124,9 @@ function car_control(car, scene) {
             );
 
         car.physicsImpostor.setLinearVelocity(
-            new BABYLON.Vector3(car_velocity.x, original_velocity_3.y, car_velocity.y)
+            new BABYLON.Vector3(
+                car_velocity.x, original_velocity_3.y, car_velocity.y
+            )
         );
 
     });

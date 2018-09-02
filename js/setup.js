@@ -37,22 +37,27 @@ var loadLevel = function( name ) {
             scene = newScene;
             scene.activeCameras = scene.cameras;
             scene.getMeshByName( "Walls" ).getChildren().map( x => x.physicsImpostor.setMass( 0 ) );
-            car = scene.getMeshByName( "Car" );
 
-            var last_press = null;
-            scene.onBeforeRenderObservable.add(()=>{
-                if( ( inputMap[ "f" ] || inputMap[ "F" ] ) && ( last_press === null || last_press + 100 < performance.now() ) ){
-                    last_press = performance.now();
-                    var headlights = scene.getMeshByName( "headlight" ).getChildren();
-                    scene.getLightByName( "DarkLight" ).setEnabled( headlights[ 0 ].isEnabled() );
-                    headlights.map( x => x.setEnabled( ! x.isEnabled() ) );
-                }
-            });
-
-            car_control( car, scene );
+            setupCar( newScene );
             setupMonitors( newScene );
+            setupComputer( newScene );
         });
     });
+}
+
+var setupCar = function( scene ) {
+    var car = scene.getMeshByName( "Car" );
+    var last_press = null;
+    scene.onBeforeRenderObservable.add(()=>{
+        if( ( inputMap[ "f" ] || inputMap[ "F" ] ) && ( last_press === null || last_press + 100 < performance.now() ) ){
+            last_press = performance.now();
+            var headlights = scene.getMeshByName( "headlight" ).getChildren();
+            scene.getLightByName( "DarkLight" ).setEnabled( headlights[ 0 ].isEnabled() );
+            headlights.map( x => x.setEnabled( ! x.isEnabled() ) );
+        }
+    });
+
+    car_control( car, scene );
 }
 
 var setupMonitors = function( scene ) {
@@ -67,3 +72,43 @@ var setupMonitors = function( scene ) {
     }
 }
 
+var setupComputer = function( scene ) {
+    var computer = scene.getMeshByName( "Computer" );
+    var car      = scene.getMeshByName( "Car" );
+
+    scene.onBeforeRenderObservable.add(()=>{
+        // Check collision with the car
+        if(computer.intersectsMesh(car, true)) {
+            // Check the faces are touching
+
+            // Generate a normalized ray between the centers of both bodies, and
+            // check both bodies are facing along this ray.
+            //
+            // The dot product for a bodies normal and the ray will be high
+            // when the body is facing the other body.
+
+            var ray = new BABYLON.Vector3(
+                computer.position.x - car.position.x,
+                computer.position.y - car.position.y,
+                computer.position.z - car.position.z
+            ).normalize();
+
+            var computer_normal = BABYLON.Vector3.TransformCoordinates(
+                new BABYLON.Vector3(0, 0, 1),
+                computer.getWorldMatrix().getRotationMatrix()
+            );
+
+            var car_normal = BABYLON.Vector3.TransformCoordinates(
+                new BABYLON.Vector3(0, 0, 1),
+                car.getWorldMatrix().getRotationMatrix()
+            );
+
+            if(
+                BABYLON.Vector3.Dot(computer_normal, ray) > 0.9
+                && BABYLON.Vector3.Dot(car_normal, ray) > 0.9
+            ) {
+                console.log("Success!");
+            }
+        }
+    });
+}
