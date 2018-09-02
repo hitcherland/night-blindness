@@ -27,6 +27,7 @@
         var scene, playerScene;
         var inputMap = {};
 
+
         BABYLON.SceneLoader.Load("scenes/monitor_room/", "monitor.babylon", engine, function (newScene) {
             newScene.executeWhenReady( function() { 
                 playerScene = newScene;
@@ -54,7 +55,7 @@
                     inputMap[evt.sourceEvent.key] = evt.sourceEvent.type == "keydown";
                 }));
 
-                loadLevel( "test" );
+                loadLevel( "simple" );
 
                 engine.runRenderLoop(function () { 
                         if ( scene !== undefined )
