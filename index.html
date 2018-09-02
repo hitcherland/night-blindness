@@ -16,14 +16,44 @@
   <body>
     <canvas id="renderCanvas" touch-action="none"></canvas>
     <script>
+
+        Number.prototype.clamp = function(min, max) {
+          return Math.min(Math.max(this, min), max);
+        };
+
         var canvas = document.getElementById("renderCanvas"); // Get the canvas element 
         var engine = new BABYLON.Engine(canvas, true); // Generate the BABYLON 3D engine
+        engine.isPointerLock = true;
         var scene, playerScene;
+        var inputMap = {};
 
         BABYLON.SceneLoader.Load("scenes/monitor_room/", "monitor.babylon", engine, function (newScene) {
             newScene.executeWhenReady( function() { 
                 playerScene = newScene;
                 playerScene.activeCamera.attachControl(canvas);
+                playerScene.activeCamera.multiTouchPanAndZoom = false;
+                var x = playerScene.activeCamera.rotation.x;
+                var y = playerScene.activeCamera.rotation.y;
+                var z = playerScene.activeCamera.rotation.z;
+
+                playerScene.registerBeforeRender(function () {
+                    playerScene.activeCamera.rotation = new BABYLON.Vector3(
+                        playerScene.activeCamera.rotation.x.clamp( x - 0.2, x + 0.2 ),
+                        playerScene.activeCamera.rotation.y.clamp( y - Math.PI / 4, y + Math.PI / 4 ),
+                        playerScene.activeCamera.rotation.z.clamp( z - Math.PI / 4, z + Math.PI / 4 ),
+            
+                    )
+                });
+
+                playerScene.actionManager = new BABYLON.ActionManager(playerScene);
+                playerScene.actionManager.registerAction(new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnKeyDownTrigger, function (evt) {
+                    inputMap[evt.sourceEvent.key] = evt.sourceEvent.type == "keydown";
+                }));
+
+                playerScene.actionManager.registerAction(new BABYLON.ExecuteCodeAction(BABYLON.ActionManager.OnKeyUpTrigger, function (evt) {
+                    inputMap[evt.sourceEvent.key] = evt.sourceEvent.type == "keydown";
+                }));
+
                 loadLevel( "test" );
 
                 engine.runRenderLoop(function () { 

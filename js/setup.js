@@ -17,17 +17,17 @@ var makeMonitor = function( monitor, localScene, remoteScene, remoteCamera ) {
     var mat = new BABYLON.StandardMaterial( monitor.name + ".material", localScene );
     var diff = makeMonitorTexture( remoteScene, remoteCamera );
     monitor.material = mat
-    mat.specularColor = new BABYLON.Color3(0.1, 0.1, 0.1); 
+    mat.specularColor = new BABYLON.Color3(0.1, 0.1, 0.1);
     mat.diffuseTexture = diff;
     remoteCamera.customRenderTargets.push( mat.diffuseTexture );
 }
 
 var MakePhysics = function( mesh, mass ) {
-    return new BABYLON.PhysicsImpostor(          
-            mesh,                                                    
-            BABYLON.PhysicsImpostor.BoxImpostor,                         
-            { "mass": mass, restitution: 0.9 },                               
-            scene                                                        
+    return new BABYLON.PhysicsImpostor(
+            mesh,
+            BABYLON.PhysicsImpostor.BoxImpostor,
+            { "mass": mass, restitution: 0.9 },
+            scene
         );
 }
 
@@ -36,14 +36,19 @@ var loadLevel = function( name ) {
         newScene.executeWhenReady( function() {
             scene = newScene;
             scene.activeCameras = scene.cameras;
-            car = scene.getMeshByName( "RealCar" );
-            car.physicsImpostor = new BABYLON.PhysicsImpostor(
-                car,
-                BABYLON.PhysicsImpostor.BoxImpostor,
-                { mass: 1, restitution: 0.9 },
-                newScene,
-            );
-            car_control( car, scene ); 
+            scene.getMeshByName( "Walls" ).getChildren().map( x => x.physicsImpostor.setMass( 0 ) );
+            car = scene.getMeshByName( "Car" );
+
+            // Game/Render loop
+            var last_press = null;
+            scene.onBeforeRenderObservable.add(()=>{
+                if( ( inputMap[ "f" ] || inputMap[ "F" ] ) && ( last_press === null || last_press + 100 < performance.now() ) ){
+                    last_press = performance.now()
+                    scene.getMeshByName( "headlight" ).getChildren().map( x => x.setEnabled( ! x.isEnabled() ) );
+                }
+            });
+
+            car_control( car, scene );
             setupMonitors( newScene );
         });
     });
