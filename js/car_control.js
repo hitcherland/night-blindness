@@ -33,7 +33,10 @@ function car_control(car, scene) {
     var car_rotation_matrix = new BABYLON.Matrix();
     var car_max_speed = 10;
     scene.onBeforeRenderObservable.add(function() {
-        var scaling = 1;
+        var acceleration_coefficient            = 0.2;
+        var lateral_friction_coefficient        = 0.1;
+        var static_engine_friction_coefficient  = 0.005;
+        var dynamic_engine_friction_coefficient = 0.001;
 
         var car_acceleration = 0;
         var turning_angle = 0;
@@ -54,6 +57,10 @@ function car_control(car, scene) {
             turning_angle = 4;
         }
 
+        // Get a normal vector pointing in the direction the car
+        // is facing
+        car.rotationQuaternion.toRotationMatrix(car_rotation_matrix);
+
         // Fix car's pitch and yaw
         car.rotationQuaternion.x = 0;
         car.rotationQuaternion.z = 0;
@@ -64,58 +71,60 @@ function car_control(car, scene) {
         );
 
 
-        // Update the car's velocity.
+        // Update the car's velocity in the zx-plane.
 
-        // Get a normal vector pointing in the direction the car
-        // is facing
-        car.rotationQuaternion.toRotationMatrix(car_rotation_matrix);
+        var original_velocity_3 = car.physicsImpostor.getLinearVelocity();
+        var original_velocity = new BABYLON.Vector2(
+            original_velocity_3.x, original_velocity_3.z
+        );
 
-        var car_direction = BABYLON.Vector3.TransformCoordinates(
+        var car_direction_3 = BABYLON.Vector3.TransformCoordinates(
             new BABYLON.Vector3(0, 0, 1),
             car_rotation_matrix
         );
-
-        // Update the car's velocity, accelerating it in the direction
-        // it's facing
-        var new_velocity = car.physicsImpostor.getLinearVelocity().add(
-            car_direction.scale(
-                car_acceleration * scaling
-            )
-        );
-        // Project the updated velocity onto car_direction to remove
-        // drift
-        var original_projected_velocity = car_direction.scale(
-            BABYLON.Vector3.Dot(new_velocity, car_direction)
-        );
-        new_velocity = new BABYLON.Vector3(
-            original_projected_velocity.x,
-            new_velocity.y,
-            original_projected_velocity.z
+        var car_direction = new BABYLON.Vector2(
+            car_direction_3.x, car_direction_3.z
         );
 
+        var original_forward_velocity = car_direction.scale(
+            BABYLON.Vector2.Dot(original_velocity, car_direction)
+        );
+        var original_lateral_velocity = original_velocity.subtract(
+            original_forward_velocity
+        );
 
-        // Apply friction and speed limitations
+        // Add the motor driving force
+        var driving_force = car_direction.scale(
+            car_acceleration * acceleration_coefficient
+        );
 
-        // If the car is going too fast, slow it down
-        if(
-            car.physicsImpostor.getLinearVelocity().lengthSquared()
-            > car_max_speed*car_max_speed
-        ) {
-            // Scale the velocity down as a fraction of
-            // max_speed / current_speed
-            scaled_velocity = new_velocity.scale(
-                car_max_speed*car_max_speed
-                     / car.physicsImpostor.getLinearVelocity().lengthSquared()
-                     / (dt / 30)
-            )
+        // Add lateral friction from the tyres
+        var lateral_friction = original_lateral_velocity.scale(
+            - lateral_friction_coefficient
+        );
 
-            new_velocity = new BABYLON.Vector3(
-                scaled_velocity.x, new_velocity.y, scaled_velocity.z
+        // Add static engine friction
+        var static_engine_friction = original_forward_velocity.scale(
+            - static_engine_friction_coefficient
+        );
+
+        // Add dynamic engine friction
+        var dynamic_engine_friction = BABYLON.Vector2.Normalize(original_forward_velocity).scale(
+            - dynamic_engine_friction_coefficient
+                * original_forward_velocity.lengthSquared()
+        );
+
+        var car_velocity =
+            original_forward_velocity.add(
+                driving_force
+                    .add(static_engine_friction)
+                    .add(dynamic_engine_friction)
+                    .scale(dt)
             );
-        }
 
-        // Set the car's new velocity
-        car.physicsImpostor.setLinearVelocity(new_velocity);
+        car.physicsImpostor.setLinearVelocity(
+            new BABYLON.Vector3(car_velocity.x, original_velocity_3.y, car_velocity.y)
+        );
 
     });
 }
