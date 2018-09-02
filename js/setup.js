@@ -60,10 +60,12 @@ var loadMonitorRoom = function() {
                     )
                 );
 
-
+                var loadedLevelScene;
+                var monitor_textures;
                 var originalCarPosition;
                 var originalCarOrientation;
-                var loadedLevelScene;
+                var audio_playing = false;
+
                 // Load the level
                 loadLevel(
                     "simple",
@@ -80,27 +82,47 @@ var loadMonitorRoom = function() {
                         originalCarOrientation = car.rotationQuaternion;
 
                         engine.runRenderLoop(function () { 
-                            levelScene.render();
-                            playerScene.render();
+                            try{
+                                if(loadedLevelScene) {
+                                    loadedLevelScene.render();
+                                }
+                                playerScene.render();
+                            } catch (e ) {
+                                console.log( "wait" );
+                            }
                         });
                     },
                     function() {
-                        console.log("You hacked good!");
+                        if( !audio_playing ) {
+                            console.log("You hacked good!");
+                            audio_playing = true;
+                            var sound = new BABYLON.Sound("Music", "audio/shortgood.mp3", playerScene, null, { loop: false, autoplay: true });
+                            sound.onended = function() {
+                                if(loadedLevelScene) {
+                                    var car = loadedLevelScene.getMeshByName("Car");
+                                    car.position = originalCarPosition;
+                                    car.rotationQuaternion = originalCarOrientation;
+                                }
+                            }
+                        }
                     },
                     function() {
-                        console.log("Oh no, you got caught!");
-                        var car = loadedLevelScene.getMeshByName( "Car" );
-                        car.position = originalCarPosition;
-                        car.rotationQuaternion = originalCarOrientation;
-                        console.log("Finishing up");
-                        console.log("Finished: ", loadedLevelScene);
+                        if( !audio_playing ) {
+                            console.log("Oh no, you got caught!");
+                            audio_playing = true;
+                            var sound = new BABYLON.Sound("Music", "audio/shortbad.mp3", playerScene, null, { loop: false, autoplay: true });
+                            sound.onended = function() {
+                                if(loadedLevelScene) {
+                                    var car = loadedLevelScene.getMeshByName("Car");
+                                    car.position = originalCarPosition;
+                                    car.rotationQuaternion = originalCarOrientation;
+                                }
+                            }
+                        }
                     }
                 );
 
             });            
-        },
-        function( progress ) {
-            console.log( progress );
         }
     );
 }
@@ -250,6 +272,7 @@ var setupCar = function( levelScene, inputMap ) {
 
     // Set up car motion
     var car = levelScene.getMeshByName( "Car" );
+    var originalPosition = car.position;
     var engine = levelScene.getEngine();
 
     if(car.rotationQuaternion == undefined) {
@@ -373,7 +396,7 @@ var setupMonitors = function( playerScene, levelScene ) {
                 levelScene.cameras[ i % levelScene.cameras.length ]
             );
         } else {
-            delete monitors.material.diffuseTexture;
+            monitors.material.diffuseTexture.dispose();
             monitors[ i ].material.diffuseTexture = makeMonitorTexture(
                 levelScene, levelScene.cameras[ i % levelScene.cameras.length ]
             );
