@@ -79,6 +79,68 @@ var setupMonitors = function( scene ) {
             monitors[ i ].material.diffuseTexture = makeMonitorTexture( scene, scene.cameras[ i % scene.cameras.length ] );
         }
     }
+
+    // Get non-car cameras
+    var security_cameras = scene.cameras.filter(
+        x => !(x.parent && x.parent.name == "Car")
+    );
+
+    // An object showing which camera can see the car
+    var camera_has_seen_the_car = Array(security_cameras.length);
+    camera_has_seen_the_car = camera_has_seen_the_car.map( x => false );
+
+    // Add car detection
+    var car = scene.getMeshByName( "Car" );
+    scene.onBeforeRenderObservable.add(()=>{
+        for(var i = 0; i < security_cameras.length; i++) {
+            var camera = security_cameras[i];
+
+            var old_seen_on_camera = camera_has_seen_the_car[i];
+
+            camera_has_seen_the_car[i] = false;
+
+            // Check the car *could* be seen by the camera
+            if(camera.isInFrustum(car)) {
+
+                // Check the car *has* been seen by the camera.
+                // We check the center of the car can be seen without
+                // occlusion.
+
+                // Create a ray from the camera to the car
+                var raw_ray = car.position.subtract(camera.position);
+                var raw_ray_length = raw_ray.length();
+                var raw_ray_normal = raw_ray.scale(1/raw_ray_length);
+
+                var ray = new BABYLON.Ray(
+                    camera.position, raw_ray_normal, raw_ray_length
+                );
+
+                // Pick the first object that intersects with the ray
+                var picked = scene.pickWithRay(ray);
+
+                // Check the first intersection was the car
+                if(
+                    picked.hit
+                    && picked.pickedMesh
+                    && picked.pickedMesh.name == "Car"
+                ) {
+                    camera_has_seen_the_car[i] = true;
+
+                    //console.log(i, "Seen on camera", i);
+                }
+            }
+
+            if(camera_has_seen_the_car[i] != old_seen_on_camera) {
+                if(camera_has_seen_the_car[i]) {
+                    console.log("Car is visible on camera %d", i);
+                }
+                else {
+                    console.log("Car not visible on camera %d", i);
+                }
+            }
+
+        }
+    });
 }
 
 var setupComputer = function( scene ) {
