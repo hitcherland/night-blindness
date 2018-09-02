@@ -23,16 +23,8 @@
         // Get the canvas element 
         var canvas = document.getElementById("renderCanvas");
 
-        // Generate the BABYLON 3D engine
-        var engine = new BABYLON.Engine(canvas, true);
-        engine.isPointerLock = true;
+        loadMonitorRoom(canvas);
 
-        loadMonitorRoom(canvas, engine);
-
-        // Watch for browser/canvas resize events
-        window.addEventListener("resize", function () { 
-                engine.resize();
-        });
     </script>
   </body>
 <html>

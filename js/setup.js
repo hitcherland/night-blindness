@@ -1,4 +1,13 @@
 var loadMonitorRoom = function() {
+    // Generate the BABYLON 3D engine
+    var engine = new BABYLON.Engine(canvas, true);
+    engine.isPointerLock = true;
+
+    // Watch for browser/canvas resize events
+    window.addEventListener("resize", function () {
+            engine.resize();
+    });
+
     BABYLON.SceneLoader.Load(
         "scenes/monitor_room/", "monitor.babylon", engine,
         function (playerScene) {
@@ -36,7 +45,6 @@ var loadMonitorRoom = function() {
                     new BABYLON.ExecuteCodeAction(
                         BABYLON.ActionManager.OnKeyDownTrigger,
                         function (evt) {
-                            console.log( "hello" );
                             inputMap[evt.sourceEvent.key] =
                                 evt.sourceEvent.type == "keydown";
                         }
@@ -53,43 +61,41 @@ var loadMonitorRoom = function() {
                 );
 
 
-                (function do_load_level() {
-                    var loadedLevelScene;
-                    var monitor_textures;
+                var originalCarPosition;
+                var originalCarOrientation;
+                var loadedLevelScene;
+                // Load the level
+                loadLevel(
+                    "simple",
+                    engine,
+                    inputMap,
+                    function(levelScene) {
+                        loadedLevelScene = levelScene;
+                        monitor_textures = setupMonitors(
+                            playerScene, levelScene
+                        );
 
-                    // Load the level
-                    loadLevel(
-                        "simple",
-                        inputMap,
-                        function(levelScene) {
-                            loadedLevelScene = levelScene;
-                            monitor_textures = setupMonitors(
-                                playerScene, levelScene
-                            );
+                        var car = levelScene.getMeshByName("Car");
+                        originalCarPosition = car.position;
+                        originalCarOrientation = car.rotationQuaternion;
 
-                            engine.runRenderLoop(function () { 
-                                    if(loadedLevelScene) {
-                                        loadedLevelScene.render();
-                                    }
-                                    playerScene.render();
-                            });
-                        },
-                        function() {
-                            console.log("You hacked good!");
-                        },
-                        function() {
-                            console.log("Oh no, you got caught!");
-                            if(loadedLevelScene) {
-                                console.log(loadedLevelScene);
-                                loadedLevelScene.dispose();
-                                loadedLevelScene = null;
-                                do_load_level();
-                            }
-                            console.log("Finishing up");
-                            console.log("Finished: ", loadedLevelScene);
-                        }
-                    );
-                })();
+                        engine.runRenderLoop(function () { 
+                            levelScene.render();
+                            playerScene.render();
+                        });
+                    },
+                    function() {
+                        console.log("You hacked good!");
+                    },
+                    function() {
+                        console.log("Oh no, you got caught!");
+                        var car = loadedLevelScene.getMeshByName( "Car" );
+                        car.position = originalCarPosition;
+                        car.rotationQuaternion = originalCarOrientation;
+                        console.log("Finishing up");
+                        console.log("Finished: ", loadedLevelScene);
+                    }
+                );
 
             });            
         },
@@ -174,7 +180,7 @@ var makeMonitor = function( monitor, playerScene, levelScene, remoteCamera ) {
 }
 
 var loadLevel = function(
-    name, inputMap, on_loaded, on_win_callback, on_lose_callback
+    name, engine, inputMap, on_loaded, on_win_callback, on_lose_callback
 ) {
     BABYLON.SceneLoader.Load(
         "scenes/levels/", name + ".babylon", engine,
