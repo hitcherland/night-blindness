@@ -79,6 +79,47 @@ var loadMonitorRoom = function() {
 }
 
 var makeMonitorTexture = function( levelScene, camera ) {
+BABYLON.Effect.ShadersStore["noiseFragmentShader"] = `
+#ifdef GL_ES
+precision highp float;
+#endif
+
+// Samplers
+varying vec2 vUV;
+uniform sampler2D textureSampler;
+
+// Parameters
+uniform vec2 screenSize;
+uniform float highlightThreshold;
+uniform float time;
+
+float random( vec2 p ) {
+    vec2 K1 = vec2(
+        23.14069263277926, // e^pi (Gelfond's constant)
+         2.665144142690225 // 2^sqrt(2) (Gelfondâ€“Schneider constant)
+    );
+    return fract( cos( dot(time * p,K1) ) * 12345.6789 );
+}
+
+float highlights(vec3 color)
+{
+ return smoothstep(highlightThreshold, 1.0, dot(color, vec3(0.3, 0.59, 0.11)));
+}
+
+void main(void) 
+{
+ vec2 texelSize = vec2(1.0 / screenSize.x, 1.0 / screenSize.y);
+ vec4 baseColor = texture2D(textureSampler, vUV + vec2(-1.0, -1.0) * texelSize) * 0.25;
+ baseColor += texture2D(textureSampler, vUV + vec2(1.0, -1.0) * texelSize) * 0.25;
+ baseColor += texture2D(textureSampler, vUV + vec2(1.0, 1.0) * texelSize) * 0.25;
+ baseColor += texture2D(textureSampler, vUV + vec2(-1.0, 1.0) * texelSize) * 0.25;
+    float rand = random( floor( vUV * 1000.0 ) );
+    baseColor = ( 4.0 * baseColor + vec4( rand,rand,rand, 1 ) ) / 5.0;
+    baseColor.a = 1.0;
+
+ gl_FragColor = baseColor;
+}`
+
     var diff = new BABYLON.RenderTargetTexture(
         ".renderTexture", 1024, levelScene, true
     );
@@ -104,6 +145,8 @@ var makeMonitor = function( monitor, playerScene, levelScene, remoteCamera ) {
     mat.specularColor = new BABYLON.Color3(0.1, 0.1, 0.1);
     mat.diffuseTexture = diff;
     remoteCamera.customRenderTargets.push( mat.diffuseTexture );
+
+
 }
 
 var loadLevel = function(
@@ -160,7 +203,7 @@ var setupCar = function( levelScene, inputMap ) {
             if(still_pressed == false) {
                 // Toggle darklight and headlight
                 headlights.map( x => x.setEnabled( ! x.isEnabled() ) );
-                darklight.setEnabled( ! headlights[ 0 ].isEnabled() );
+//                darklight.setEnabled( ! headlights[ 0 ].isEnabled() );
             }
 
             still_pressed = true;
@@ -172,7 +215,7 @@ var setupCar = function( levelScene, inputMap ) {
 
     // On startup, headlights on, darklight off
     headlights.map( x => x.setEnabled( true ) );
-    darklight.setEnabled( ! headlights[ 0 ].isEnabled() );
+//    darklight.setEnabled( ! headlights[ 0 ].isEnabled() );
 
 
     // Set up car motion
@@ -291,6 +334,7 @@ var setupMonitors = function( playerScene, levelScene ) {
         [ "Left", "Center", "Right" ]
             .map( x => playerScene.getMeshByName( "Monitor." + x ) )
     for( var i=0; i<monitors.length; i++ ) {
+        var camera = levelScene.cameras[ i % levelScene.cameras.length ];
         if( monitors.material === undefined ) {
             makeMonitor(
                 monitors[ i ],
@@ -302,6 +346,23 @@ var setupMonitors = function( playerScene, levelScene ) {
             monitors[ i ].material.diffuseTexture = makeMonitorTexture(
                 levelScene, levelScene.cameras[ i % levelScene.cameras.length ]
             );
+        }
+
+        if( camera.parent === undefined || camera.parent.name != "Car" ) {
+            var t = monitors[ i ].material.diffuseTexture;
+            var postProcess = new BABYLON.PostProcess("noise", "noise", ["screenSize", "highlightThreshold", "time"], null, 0.25, camera);
+            postProcess.onApply = function (effect) {
+                effect.setFloat2("screenSize", postProcess.width, postProcess.height);
+                effect.setFloat("highlightThreshold", 0.90);
+                effect.setFloat("time", performance.now() + i);
+            };
+            t.level = 1;
+
+            [
+                postProcess,
+                new BABYLON.GrainPostProcess( "grainy" + i, 1.8, camera ),
+            ].map( x => t.addPostProcess( x ) );
+
         }
     }
 }
