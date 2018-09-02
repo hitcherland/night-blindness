@@ -1,3 +1,85 @@
+var loadMonitorRoom = function() {
+    BABYLON.SceneLoader.Load(
+        "scenes/monitor_room/", "monitor.babylon", engine,
+        function (playerScene) {
+            playerScene.executeWhenReady( function() { 
+
+                var music = new BABYLON.Sound("Music", "audio/background.mp3", playerScene, null, { loop: true, autoplay: true });
+
+                playerScene.activeCamera.attachControl(canvas);
+                playerScene.activeCamera.multiTouchPanAndZoom = false;
+
+                // Clamp the camera rotation
+                var x = playerScene.activeCamera.rotation.x;
+                var y = playerScene.activeCamera.rotation.y;
+                var z = playerScene.activeCamera.rotation.z;
+
+                playerScene.registerBeforeRender(function () {
+                    playerScene.activeCamera.rotation = new BABYLON.Vector3(
+                        playerScene.activeCamera.rotation
+                            .x.clamp( x - 0.2, x + 0.2 ),
+                        playerScene.activeCamera.rotation
+                            .y.clamp( y - Math.PI / 4, y + Math.PI / 4 ),
+                        playerScene.activeCamera.rotation
+                            .z.clamp( z - Math.PI / 4, z + Math.PI / 4 ),
+            
+                    )
+                });
+
+
+                // Set up keyboard input
+                var inputMap = {};
+
+                playerScene.actionManager =
+                    new BABYLON.ActionManager(playerScene);
+                playerScene.actionManager.registerAction(
+                    new BABYLON.ExecuteCodeAction(
+                        BABYLON.ActionManager.OnKeyDownTrigger,
+                        function (evt) {
+                            inputMap[evt.sourceEvent.key] =
+                                evt.sourceEvent.type == "keydown";
+                        }
+                    )
+                );
+                playerScene.actionManager.registerAction(
+                    new BABYLON.ExecuteCodeAction(
+                        BABYLON.ActionManager.OnKeyUpTrigger,
+                        function (evt) {
+                            inputMap[evt.sourceEvent.key] =
+                                evt.sourceEvent.type == "keydown";
+                        }
+                    )
+                );
+
+
+                // Load the level
+                loadLevel(
+                    "simple",
+                    inputMap,
+                    function(levelScene) {
+                        setupMonitors( playerScene, levelScene );
+                        engine.runRenderLoop(function () { 
+                                levelScene.render();
+                                playerScene.render();
+                        });
+                    },
+                    function() {
+                        console.log("You hacked good!");
+                    },
+                    function() {
+                        console.log("Oh no, you got caught!");
+                    }
+                );
+
+            });            
+        },
+        function( progress ) {
+            console.log( progress );
+        }
+    );
+}
+
+var makeMonitorTexture = function( levelScene, camera ) {
 BABYLON.Effect.ShadersStore["noiseFragmentShader"] = `
 #ifdef GL_ES
 precision highp float;
@@ -29,10 +111,8 @@ void main(void)
     gl_FragColor = baseColor;
 }`
 
-
-var makeMonitorTexture = function( scene, camera ) {
     var diff = new BABYLON.RenderTargetTexture(
-        ".renderTexture", 1024, scene, true
+        ".renderTexture", 1024, levelScene, true
     );
     diff.samples = 16;
     diff.anisotropicFilteringLevel = 0;
@@ -47,11 +127,11 @@ var makeMonitorTexture = function( scene, camera ) {
 
 }
 
-var makeMonitor = function( monitor, localScene, remoteScene, remoteCamera ) {
+var makeMonitor = function( monitor, playerScene, levelScene, remoteCamera ) {
     var mat = new BABYLON.StandardMaterial(
-        monitor.name + ".material", localScene
+        monitor.name + ".material", playerScene
     );
-    var diff = makeMonitorTexture( remoteScene, remoteCamera );
+    var diff = makeMonitorTexture( levelScene, remoteCamera );
     monitor.material = mat
     mat.specularColor = new BABYLON.Color3(0.1, 0.1, 0.1);
     mat.diffuseTexture = diff;
@@ -59,58 +139,69 @@ var makeMonitor = function( monitor, localScene, remoteScene, remoteCamera ) {
 
     var text = monitor.clone( "text" );
     textmat = new BABYLON.StandardMaterial(
-        monitor.name + ".text.material", localScene
+        monitor.name + ".text.material", playerScene
     );
 
-    var textTexture = new BABYLON.DynamicTexture( monitor.name + ".text.texture", 512, localScene, true);
+    var textTexture = new BABYLON.DynamicTexture( monitor.name + ".text.texture", 512, playerScene, true);
     text.material = textmat;
     textmat.diffuseTexture = textTexture;
     textTexture.drawText( remoteCamera.name, 10, 20, "bold 20px monospace", "white", "#0000AA00");
     textTexture.wAng = -Math.PI / 2;
-//    textTexture.alpha = 0.5;
     textmat.specularColor = new BABYLON.Color4( 0, 0, 0, 0 );
     textmat.specularColor = new BABYLON.Color4( 0, 0, 0, 0 );
     textTexture.hasAlpha = true;
         
 }
 
-var loadLevel = function( name ) {
+var loadLevel = function(
+    name, inputMap, on_loaded, on_win_callback, on_lose_callback
+) {
     BABYLON.SceneLoader.Load(
         "scenes/levels/", name + ".babylon", engine,
-        function (newScene) {
-            newScene.executeWhenReady( function() {
-                scene = newScene;
-                scene.activeCameras = scene.cameras;
-                scene.getMeshByName( "Walls" ).getChildren().map(
+        function (levelScene) {
+            levelScene.executeWhenReady( function() {
+                levelScene.activeCameras = levelScene.cameras;
+                levelScene.getMeshByName( "Walls" ).getChildren().map(
                     x => x.physicsImpostor.setMass( 0 )
                 );
                 var shadows =
-                    scene.lights
+                    levelScene.lights
                         .filter( x => x.needCube !== undefined )
                         .map(
                             x => new BABYLON.ShadowGenerator( 1024, x, true)
                         );
                 shadows
-                    .map( x => scene.getMeshByName( "Walls" )
+                    .map( x => levelScene.getMeshByName( "Walls" )
                     .getChildren()
                     .map( y => x.addShadowCaster( y ) ) );
-                scene.meshes.map( x => x.receiveShadows = true );
+                levelScene.meshes.map( x => x.receiveShadows = true );
 
-                setupCar( newScene );
-                setupMonitors( newScene );
-                setupComputer( newScene );
+
+                setupCar( levelScene, inputMap );
+                var car_has_infiltrated_computer = setupComputer( levelScene );
+                var camera_can_see_car = setupCameras( levelScene );
+
+                setupWinLoseCriteria(
+                    levelScene, car_has_infiltrated_computer,
+                    camera_can_see_car,
+                    on_win_callback, on_lose_callback
+                );
+
+                if(on_loaded) {
+                    on_loaded(levelScene);
+                }
             });
         }
     );
 }
 
-var setupCar = function( scene ) {
-    var headlights = scene.getMeshByName( "headlight" ).getChildren();
-    var darklight  = scene.getLightByName( "DarkLight" );
+var setupCar = function( levelScene, inputMap ) {
+    var headlights = levelScene.getMeshByName( "headlight" ).getChildren();
+    var darklight  = levelScene.getLightByName( "DarkLight" );
 
     // Set up headlight toggle button
     var still_pressed = false;
-    scene.onBeforeRenderObservable.add(()=>{
+    levelScene.onBeforeRenderObservable.add(()=>{
         if( ( inputMap[ "f" ] || inputMap[ "F" ] ) ) {
 
             if(still_pressed == false) {
@@ -130,26 +221,134 @@ var setupCar = function( scene ) {
     headlights.map( x => x.setEnabled( true ) );
 //    darklight.setEnabled( ! headlights[ 0 ].isEnabled() );
 
-    var car = scene.getMeshByName( "Car" );
-    car_control( car, scene );
+
+    // Set up car motion
+    var car = levelScene.getMeshByName( "Car" );
+    var engine = levelScene.getEngine();
+
+    if(car.rotationQuaternion == undefined) {
+        car.rotationQuaternion = new BABYLON.Quaternion.RotationYawPitchRoll(
+            car.rotation.y, car.rotation.x, car.rotation.z
+        )
+    }
+
+    var car_rotation_matrix = new BABYLON.Matrix();
+    levelScene.onBeforeRenderObservable.add(function() {
+        var acceleration_coefficient            = 0.2;
+        var lateral_friction_coefficient        = 0.1;
+        var static_engine_friction_coefficient  = 0.005;
+        var dynamic_engine_friction_coefficient = 0.001;
+
+        var car_acceleration = 0;
+        var turning_angle = 0;
+
+        // dt in milliseconds
+        var dt = Math.max(engine.getDeltaTime(), 1);
+
+        if(inputMap["w"] || inputMap["ArrowUp"]) {
+            car_acceleration = 1;
+        }
+        if(inputMap["a"] || inputMap["ArrowLeft"]) {
+            turning_angle = -4;
+        }
+        if(inputMap["s"] || inputMap["ArrowDown"]) {
+            car_acceleration = -1;
+        }
+        if(inputMap["d"] || inputMap["ArrowRight"]) {
+            turning_angle = 4;
+        }
+
+        // Get a normal vector pointing in the direction the car
+        // is facing
+        car.rotationQuaternion.toRotationMatrix(car_rotation_matrix);
+
+        // Fix car's pitch and yaw
+        car.rotationQuaternion.x = 0;
+        car.rotationQuaternion.z = 0;
+
+        // Apply steering
+        car.physicsImpostor.setAngularVelocity(
+            new BABYLON.Quaternion(0, turning_angle, 0, 0)
+        );
+
+
+        // Update the car's velocity in the zx-plane.
+
+        var original_velocity_3 = car.physicsImpostor.getLinearVelocity();
+        var original_velocity = new BABYLON.Vector2(
+            original_velocity_3.x, original_velocity_3.z
+        );
+
+        var car_direction_3 = BABYLON.Vector3.TransformCoordinates(
+            new BABYLON.Vector3(0, 0, 1),
+            car_rotation_matrix
+        );
+        var car_direction = new BABYLON.Vector2(
+            car_direction_3.x, car_direction_3.z
+        );
+
+        var original_forward_velocity = car_direction.scale(
+            BABYLON.Vector2.Dot(original_velocity, car_direction)
+        );
+        var original_lateral_velocity = original_velocity.subtract(
+            original_forward_velocity
+        );
+
+        // Add the motor driving force
+        var driving_force = car_direction.scale(
+            car_acceleration * acceleration_coefficient
+        );
+
+        // Add lateral friction from the tyres
+        var lateral_friction = original_lateral_velocity.scale(
+            - lateral_friction_coefficient
+        );
+
+        // Add static engine friction
+        var static_engine_friction = original_forward_velocity.scale(
+            - static_engine_friction_coefficient
+        );
+
+        // Add dynamic engine friction
+        var dynamic_engine_friction =
+            BABYLON.Vector2.Normalize(original_forward_velocity).scale(
+                - dynamic_engine_friction_coefficient
+                    * original_forward_velocity.lengthSquared()
+            );
+
+        var car_velocity =
+            original_forward_velocity.add(
+                driving_force
+                    .add(static_engine_friction)
+                    .add(dynamic_engine_friction)
+                    .scale(dt)
+            );
+
+        car.physicsImpostor.setLinearVelocity(
+            new BABYLON.Vector3(
+                car_velocity.x, original_velocity_3.y, car_velocity.y
+            )
+        );
+
+    });
 }
 
-var setupMonitors = function( scene ) {
+var setupMonitors = function( playerScene, levelScene ) {
     var monitors =
         [ "Left", "Center", "Right" ]
             .map( x => playerScene.getMeshByName( "Monitor." + x ) )
     for( var i=0; i<monitors.length; i++ ) {
-        var camera = scene.cameras[ i % scene.cameras.length ];
+        var camera = levelScene.cameras[ i % levelScene.cameras.length ];
         if( monitors.material === undefined ) {
             makeMonitor(
                 monitors[ i ],
-                playerScene, scene,
-                scene.cameras[ i % scene.cameras.length ]
+                playerScene, levelScene,
+                levelScene.cameras[ i % levelScene.cameras.length ]
             );
         } else {
             delete monitors.material.diffuseTexture;
             monitors[ i ].material.diffuseTexture = makeMonitorTexture(
-                scene, scene.cameras[ i % scene.cameras.length ]
+                levelScene, levelScene.cameras[ i % levelScene.cameras.length ]
             );
         }
 
@@ -168,23 +367,25 @@ var setupMonitors = function( scene ) {
             ].map( x => t.addPostProcess( x ) );
         }
     }
+}
+
+// Setup the cameras, returning an object which says when a camera can
+// see the car
+var setupCameras = function( levelScene ) {
 
     // Get non-car cameras
-    var security_cameras = scene.cameras.filter(
+    var security_cameras = levelScene.cameras.filter(
         x => !(x.parent && x.parent.name == "Car")
     );
 
-    // An object showing which camera can see the car
     var camera_has_seen_the_car = Array(security_cameras.length);
     camera_has_seen_the_car = camera_has_seen_the_car.map( x => false );
 
     // Add car detection
-    var car = scene.getMeshByName( "Car" );
-    scene.onBeforeRenderObservable.add(()=>{
+    var car = levelScene.getMeshByName( "Car" );
+    levelScene.onBeforeRenderObservable.add(()=>{
         for(var i = 0; i < security_cameras.length; i++) {
             var camera = security_cameras[i];
-
-            var old_seen_on_camera = camera_has_seen_the_car[i];
 
             camera_has_seen_the_car[i] = false;
 
@@ -205,7 +406,7 @@ var setupMonitors = function( scene ) {
                 );
 
                 // Pick the first object that intersects with the ray
-                var picked = scene.pickWithRay(ray);
+                var picked = levelScene.pickWithRay(ray);
 
                 // Check the first intersection was the car
                 if(
@@ -214,29 +415,24 @@ var setupMonitors = function( scene ) {
                     && picked.pickedMesh.name == "Car"
                 ) {
                     camera_has_seen_the_car[i] = true;
-
-                    //console.log(i, "Seen on camera", i);
-                }
-            }
-
-            if(camera_has_seen_the_car[i] != old_seen_on_camera) {
-                if(camera_has_seen_the_car[i]) {
-                    console.log("Car is visible on camera %d", i);
-                }
-                else {
-                    console.log("Car not visible on camera %d", i);
                 }
             }
 
         }
     });
+
+    return camera_has_seen_the_car;
 }
 
-var setupComputer = function( scene ) {
-    var computer = scene.getMeshByName( "Computer" );
-    var car      = scene.getMeshByName( "Car" );
+var setupComputer = function( levelScene ) {
+    var computer = levelScene.getMeshByName( "Computer" );
+    var car      = levelScene.getMeshByName( "Car" );
 
-    scene.onBeforeRenderObservable.add(()=>{
+    var car_has_infiltrated_computer = [false];
+
+    levelScene.onBeforeRenderObservable.add(()=>{
+        car_has_infiltrated_computer[0] = false;
+
         // Check collision with the car
         if(computer.intersectsMesh(car, true)) {
             // Check the faces are touching
@@ -267,8 +463,33 @@ var setupComputer = function( scene ) {
                 BABYLON.Vector3.Dot(computer_normal, ray) > 0.9
                 && BABYLON.Vector3.Dot(car_normal, ray) > 0.9
             ) {
-                console.log("Success!");
+                car_has_infiltrated_computer[0] = true;
             }
+        }
+    });
+
+    return car_has_infiltrated_computer;
+}
+
+var setupWinLoseCriteria = function(
+    levelScene, car_has_infiltrated_computer, camera_can_see_car,
+    on_win_callback, on_lose_callback
+) {
+
+    var headlights = levelScene.getMeshByName( "headlight" ).getChildren();
+    levelScene.onBeforeRenderObservable.add(()=>{
+        // If any camera can see the car
+        if(camera_can_see_car.some( x => x)) {
+            // And if the headlights are on!
+            if(headlights.some( x => x.isEnabled() )) {
+                // Then we lose
+                if(on_lose_callback) on_lose_callback();
+            }
+        }
+
+        // If the car has infiltrated the computer, we've won!
+        if(car_has_infiltrated_computer[0]) {
+            if(on_win_callback) on_win_callback();
         }
     });
 }
