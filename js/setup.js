@@ -22,15 +22,6 @@ var makeMonitor = function( monitor, localScene, remoteScene, remoteCamera ) {
     remoteCamera.customRenderTargets.push( mat.diffuseTexture );
 }
 
-var MakePhysics = function( mesh, mass ) {
-    return new BABYLON.PhysicsImpostor(
-            mesh,
-            BABYLON.PhysicsImpostor.BoxImpostor,
-            { "mass": mass, restitution: 0.9 },
-            scene
-        );
-}
-
 var loadLevel = function( name ) {
     BABYLON.SceneLoader.Load("scenes/levels/", name + ".babylon", engine, function (newScene) {
         newScene.executeWhenReady( function() {
@@ -49,17 +40,32 @@ var loadLevel = function( name ) {
 }
 
 var setupCar = function( scene ) {
-    var car = scene.getMeshByName( "Car" );
-    var last_press = null;
+    var headlights = scene.getMeshByName( "headlight" ).getChildren();
+    var darklight  = scene.getLightByName( "DarkLight" );
+
+    // Set up headlight toggle button
+    var still_pressed = false;
     scene.onBeforeRenderObservable.add(()=>{
-        if( ( inputMap[ "f" ] || inputMap[ "F" ] ) && ( last_press === null || last_press + 100 < performance.now() ) ){
-            last_press = performance.now();
-            var headlights = scene.getMeshByName( "headlight" ).getChildren();
-            scene.getLightByName( "DarkLight" ).setEnabled( headlights[ 0 ].isEnabled() );
-            headlights.map( x => x.setEnabled( ! x.isEnabled() ) );
+        if( ( inputMap[ "f" ] || inputMap[ "F" ] ) ) {
+
+            if(still_pressed == false) {
+                // Toggle darklight and headlight
+                headlights.map( x => x.setEnabled( ! x.isEnabled() ) );
+                darklight.setEnabled( ! headlights[ 0 ].isEnabled() );
+            }
+
+            still_pressed = true;
+        }
+        else {
+            still_pressed = false;
         }
     });
 
+    // On startup, headlights on, darklight off
+    headlights.map( x => x.setEnabled( true ) );
+    darklight.setEnabled( ! headlights[ 0 ].isEnabled() );
+
+    var car = scene.getMeshByName( "Car" );
     car_control( car, scene );
 }
 
