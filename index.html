@@ -31,6 +31,7 @@
         BABYLON.SceneLoader.Load("scenes/monitor_room/", "monitor.babylon", engine, function (newScene) {
             newScene.executeWhenReady( function() { 
                 playerScene = newScene;
+                var music = new BABYLON.Sound("Music", "audio/background.mp3", playerScene, null, { loop: true, autoplay: true });
                 playerScene.activeCamera.attachControl(canvas);
                 playerScene.activeCamera.multiTouchPanAndZoom = false;
                 var x = playerScene.activeCamera.rotation.x;

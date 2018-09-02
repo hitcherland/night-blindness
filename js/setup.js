@@ -9,7 +9,6 @@ uniform sampler2D textureSampler;
 
 // Parameters
 uniform vec2 screenSize;
-uniform float highlightThreshold;
 uniform float time;
 
 float random( vec2 p ) {
@@ -20,23 +19,14 @@ float random( vec2 p ) {
     return fract( cos( dot(time * p,K1) ) * 12345.6789 );
 }
 
-float highlights(vec3 color)
-{
- return smoothstep(highlightThreshold, 1.0, dot(color, vec3(0.3, 0.59, 0.11)));
-}
-
 void main(void) 
 {
- vec2 texelSize = vec2(1.0 / screenSize.x, 1.0 / screenSize.y);
- vec4 baseColor = texture2D(textureSampler, vUV + vec2(-1.0, -1.0) * texelSize) * 0.25;
- baseColor += texture2D(textureSampler, vUV + vec2(1.0, -1.0) * texelSize) * 0.25;
- baseColor += texture2D(textureSampler, vUV + vec2(1.0, 1.0) * texelSize) * 0.25;
- baseColor += texture2D(textureSampler, vUV + vec2(-1.0, 1.0) * texelSize) * 0.25;
+    vec4 baseColor = texture2D(textureSampler, vUV);
     float rand = random( floor( vUV * 1000.0 ) );
     baseColor = ( 4.0 * baseColor + vec4( rand,rand,rand, 1 ) ) / 5.0;
     baseColor.a = 1.0;
 
- gl_FragColor = baseColor;
+    gl_FragColor = baseColor;
 }`
 
 
@@ -67,7 +57,21 @@ var makeMonitor = function( monitor, localScene, remoteScene, remoteCamera ) {
     mat.diffuseTexture = diff;
     remoteCamera.customRenderTargets.push( mat.diffuseTexture );
 
+    var text = monitor.clone( "text" );
+    textmat = new BABYLON.StandardMaterial(
+        monitor.name + ".text.material", localScene
+    );
 
+    var textTexture = new BABYLON.DynamicTexture( monitor.name + ".text.texture", 512, localScene, true);
+    text.material = textmat;
+    textmat.diffuseTexture = textTexture;
+    textTexture.drawText( remoteCamera.name, 10, 20, "bold 20px monospace", "white", "#0000AA00");
+    textTexture.wAng = -Math.PI / 2;
+//    textTexture.alpha = 0.5;
+    textmat.specularColor = new BABYLON.Color4( 0, 0, 0, 0 );
+    textmat.specularColor = new BABYLON.Color4( 0, 0, 0, 0 );
+    textTexture.hasAlpha = true;
+        
 }
 
 var loadLevel = function( name ) {
@@ -151,10 +155,9 @@ var setupMonitors = function( scene ) {
 
         if( camera.parent === undefined || camera.parent.name != "Car" ) {
             var t = monitors[ i ].material.diffuseTexture;
-            var postProcess = new BABYLON.PostProcess("noise", "noise", ["screenSize", "highlightThreshold", "time"], null, 0.25, camera);
+            var postProcess = new BABYLON.PostProcess("noise", "noise", ["screenSize", "time"], null, 0.25, camera);
             postProcess.onApply = function (effect) {
                 effect.setFloat2("screenSize", postProcess.width, postProcess.height);
-                effect.setFloat("highlightThreshold", 0.90);
                 effect.setFloat("time", performance.now() + i);
             };
             t.level = 1;
@@ -163,7 +166,6 @@ var setupMonitors = function( scene ) {
                 postProcess,
                 new BABYLON.GrainPostProcess( "grainy" + i, 1.8, camera ),
             ].map( x => t.addPostProcess( x ) );
-
         }
     }
 
