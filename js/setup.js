@@ -37,6 +37,9 @@ var loadLevel = function( name ) {
             scene = newScene;
             scene.activeCameras = scene.cameras;
             scene.getMeshByName( "Walls" ).getChildren().map( x => x.physicsImpostor.setMass( 0 ) );
+            var shadows = scene.lights.filter( x => x.needCube !== undefined ).map( x => new BABYLON.ShadowGenerator( 1024, x, true) );
+            shadows.map( x => scene.getMeshByName( "Walls" ).getChildren().map( y => x.addShadowCaster( y ) ) );
+            scene.meshes.map( x => x.receiveShadows = true );
 
             setupCar( newScene );
             setupMonitors( newScene );
